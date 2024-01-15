@@ -1,4 +1,4 @@
-module github.com/nkanaev/yarr
+module github.com/jgkawell/yarr
 
 go 1.21
 
@@ -6,7 +6,6 @@ require (
 	github.com/jackc/pgx/v5 v5.5.1
 	github.com/pressly/goose/v3 v3.17.0
 	golang.org/x/net v0.19.0
-	golang.org/x/sys v0.15.0
 )
 
 require (
