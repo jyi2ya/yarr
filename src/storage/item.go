@@ -114,7 +114,7 @@ func (s *Storage) CreateItems(items []Item) bool {
 				content, image, podcast_url,
 				date_arrived, status
 			)
-			values (?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%f', ?), ?, ?, ?, ?, ?)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			on conflict (feed_id, guid) do nothing`,
 			item.GUID, item.FeedId, item.Title, item.Link, item.Date,
 			item.Content, item.ImageURL, item.AudioURL,
@@ -139,17 +139,21 @@ func (s *Storage) CreateItems(items []Item) bool {
 func listQueryPredicate(filter ItemFilter, newestFirst bool) (string, []interface{}) {
 	cond := make([]string, 0)
 	args := make([]interface{}, 0)
+	index := 1
 	if filter.FolderID != nil {
-		cond = append(cond, "i.feed_id in (select id from feeds where folder_id = ?)")
+		cond = append(cond, fmt.Sprintf("i.feed_id in (select id from feeds where folder_id = $%d)", index))
 		args = append(args, *filter.FolderID)
+		index++
 	}
 	if filter.FeedID != nil {
-		cond = append(cond, "i.feed_id = ?")
+		cond = append(cond, fmt.Sprintf("i.feed_id = $%d", index))
 		args = append(args, *filter.FeedID)
+		index++
 	}
 	if filter.Status != nil {
-		cond = append(cond, "i.status = ?")
+		cond = append(cond, fmt.Sprintf("i.status = $%d", index))
 		args = append(args, *filter.Status)
+		index++
 	}
 	if filter.Search != nil {
 		words := strings.Fields(*filter.Search)
@@ -158,41 +162,47 @@ func listQueryPredicate(filter ItemFilter, newestFirst bool) (string, []interfac
 			terms[idx] = word + "*"
 		}
 
-		cond = append(cond, "i.search_rowid in (select rowid from search where search match ?)")
+		cond = append(cond, fmt.Sprintf("i.search_rowid in (select rowid from search where search match $%d)", index))
 		args = append(args, strings.Join(terms, " "))
+		index++
 	}
 	if filter.After != nil {
 		compare := ">"
 		if newestFirst {
 			compare = "<"
 		}
-		cond = append(cond, fmt.Sprintf("(i.date, i.id) %s (select date, id from items where id = ?)", compare))
+		cond = append(cond, fmt.Sprintf("(i.date, i.id) %s (select date, id from items where id = $%d)", compare, index))
 		args = append(args, *filter.After)
+		index++
 	}
 	if filter.IDs != nil && len(*filter.IDs) > 0 {
 		qmarks := make([]string, len(*filter.IDs))
 		idargs := make([]interface{}, len(*filter.IDs))
 		for i, id := range *filter.IDs {
-			qmarks[i] = "?"
+			qmarks[i] = fmt.Sprintf("$%d", index)
 			idargs[i] = id
+			index++
 		}
 		cond = append(cond, "i.id in ("+strings.Join(qmarks, ",")+")")
 		args = append(args, idargs...)
 	}
 	if filter.SinceID != nil {
-		cond = append(cond, "i.id > ?")
+		cond = append(cond, fmt.Sprintf("i.id > $%d)", index))
 		args = append(args, filter.SinceID)
+		index++
 	}
 	if filter.MaxID != nil {
-		cond = append(cond, "i.id < ?")
+		cond = append(cond, fmt.Sprintf("i.id < $%d", index))
 		args = append(args, filter.MaxID)
+		index++
 	}
 	if filter.Before != nil {
-		cond = append(cond, "i.date < ?")
+		cond = append(cond, fmt.Sprintf("i.date < $%d", index))
 		args = append(args, filter.Before)
+		index++
 	}
 
-	predicate := "1"
+	predicate := "true"
 	if len(cond) > 0 {
 		predicate = strings.Join(cond, " and ")
 	}
@@ -273,7 +283,7 @@ func (s *Storage) GetItem(id int64) *Item {
 			i.id, i.guid, i.feed_id, i.title, i.link, i.content,
 			i.date, i.status, i.image, i.podcast_url
 		from items i
-		where i.id = ?
+		where i.id = $1
 	`, id).Scan(
 		&i.Id, &i.GUID, &i.FeedId, &i.Title, &i.Link, &i.Content,
 		&i.Date, &i.Status, &i.ImageURL, &i.AudioURL,
@@ -286,7 +296,7 @@ func (s *Storage) GetItem(id int64) *Item {
 }
 
 func (s *Storage) UpdateItemStatus(item_id int64, status ItemStatus) bool {
-	_, err := s.db.Exec(`update items set status = ? where id = ?`, status, item_id)
+	_, err := s.db.Exec(`update items set status = $1 where id = $2`, status, item_id)
 	return err == nil
 }
 
@@ -355,7 +365,7 @@ func (s *Storage) SyncSearch() {
 
 	for _, item := range items {
 		result, err := s.db.Exec(`
-			insert into search (title, description, content) values (?, "", ?)`,
+			insert into search (title, description, content) values ($1, '', $2)`,
 			item.Title, htmlutil.ExtractText(item.Content),
 		)
 		if err != nil {
@@ -365,7 +375,7 @@ func (s *Storage) SyncSearch() {
 		if numrows, err := result.RowsAffected(); err == nil && numrows == 1 {
 			if rowId, err := result.LastInsertId(); err == nil {
 				s.db.Exec(
-					`update items set search_rowid = ? where id = ?`,
+					`update items set search_rowid = $1 where id = $2`,
 					rowId, item.Id,
 				)
 			}
@@ -390,13 +400,13 @@ func (s *Storage) DeleteOldItems() {
 	rows, err := s.db.Query(`
 		select
 			i.feed_id,
-			max(coalesce(s.size, 0), ?) as max_items,
+			max(coalesce(s.size, 0)) as max_items,
 			count(*) as num_items
 		from items i
 		left outer join feed_sizes s on s.feed_id = i.feed_id
-		where status != ?
+		where status != $1
 		group by i.feed_id
-	`, itemsKeepSize, STARRED)
+	`, STARRED)
 
 	if err != nil {
 		log.Print(err)
@@ -407,6 +417,10 @@ func (s *Storage) DeleteOldItems() {
 	for rows.Next() {
 		var feedId, limit int64
 		rows.Scan(&feedId, &limit, nil)
+		// set default limit if not set
+		if limit == 0 {
+			limit = int64(itemsKeepSize)
+		}
 		feedLimits[feedId] = limit
 	}
 
@@ -416,10 +430,10 @@ func (s *Storage) DeleteOldItems() {
 			where id in (
 				select i.id
 				from items i
-				where i.feed_id = ? and status != ?
+				where i.feed_id = $1 and status != $2
 				order by date desc
-				limit -1 offset ?
-			) and date_arrived < ?
+				offset $3
+			) and date_arrived < $4
 			`,
 			feedId,
 			STARRED,

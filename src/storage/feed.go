@@ -22,8 +22,8 @@ func (s *Storage) CreateFeed(title, description, link, feedLink string, folderId
 	}
 	row := s.db.QueryRow(`
 		insert into feeds (title, description, link, feed_link, folder_id) 
-		values (?, ?, ?, ?, ?)
-		on conflict (feed_link) do update set folder_id = ?
+		values ($1, $2, $3, $4, $5)
+		on conflict (feed_link) do update set folder_id = $6
         returning id`,
 		title, description, link, feedLink, folderId,
 		folderId,
@@ -46,7 +46,7 @@ func (s *Storage) CreateFeed(title, description, link, feedLink string, folderId
 }
 
 func (s *Storage) DeleteFeed(feedId int64) bool {
-	result, err := s.db.Exec(`delete from feeds where id = ?`, feedId)
+	result, err := s.db.Exec(`delete from feeds where id = $1`, feedId)
 	if err != nil {
 		log.Print(err)
 		return false
@@ -62,17 +62,17 @@ func (s *Storage) DeleteFeed(feedId int64) bool {
 }
 
 func (s *Storage) RenameFeed(feedId int64, newTitle string) bool {
-	_, err := s.db.Exec(`update feeds set title = ? where id = ?`, newTitle, feedId)
+	_, err := s.db.Exec(`update feeds set title = $1 where id = $2`, newTitle, feedId)
 	return err == nil
 }
 
 func (s *Storage) UpdateFeedFolder(feedId int64, newFolderId *int64) bool {
-	_, err := s.db.Exec(`update feeds set folder_id = ? where id = ?`, newFolderId, feedId)
+	_, err := s.db.Exec(`update feeds set folder_id = $1 where id = $2`, newFolderId, feedId)
 	return err == nil
 }
 
 func (s *Storage) UpdateFeedIcon(feedId int64, icon *[]byte) bool {
-	_, err := s.db.Exec(`update feeds set icon = ? where id = ?`, icon, feedId)
+	_, err := s.db.Exec(`update feeds set icon = $1 where id = $2`, icon, feedId)
 	return err == nil
 }
 
@@ -80,7 +80,7 @@ func (s *Storage) ListFeeds() []Feed {
 	result := make([]Feed, 0)
 	rows, err := s.db.Query(`
 		select id, folder_id, title, description, link, feed_link,
-		       ifnull(length(icon), 0) > 0 as has_icon
+		       coalesce(length(icon), 0) > 0 as has_icon
 		from feeds
 		order by title collate nocase
 	`)
@@ -143,8 +143,8 @@ func (s *Storage) GetFeed(id int64) *Feed {
 	err := s.db.QueryRow(`
 		select
 			id, folder_id, title, link, feed_link,
-			icon, ifnull(icon, '') != '' as has_icon
-		from feeds where id = ?
+			icon, coalesce(icon, '') != '' as has_icon
+		from feeds where id = $1
 	`, id).Scan(
 		&f.Id, &f.FolderId, &f.Title, &f.Link, &f.FeedLink,
 		&f.Icon, &f.HasIcon,
@@ -167,7 +167,7 @@ func (s *Storage) ResetFeedErrors() {
 func (s *Storage) SetFeedError(feedID int64, lastError error) {
 	_, err := s.db.Exec(`
 		insert into feed_errors (feed_id, error)
-		values (?, ?)
+		values ($1, $2)
 		on conflict (feed_id) do update set error = excluded.error`,
 		feedID, lastError.Error(),
 	)
@@ -199,7 +199,7 @@ func (s *Storage) GetFeedErrors() map[int64]string {
 func (s *Storage) SetFeedSize(feedId int64, size int) {
 	_, err := s.db.Exec(`
 		insert into feed_sizes (feed_id, size)
-		values (?, ?)
+		values ($1, $2)
 		on conflict (feed_id) do update set size = excluded.size`,
 		feedId, size,
 	)

@@ -20,7 +20,7 @@ func settingsDefaults() map[string]interface{} {
 }
 
 func (s *Storage) GetSettingsValue(key string) interface{} {
-	row := s.db.QueryRow(`select val from settings where key=?`, key)
+	row := s.db.QueryRow(`select val from settings where key=$1`, key)
 	if row == nil {
 		return settingsDefaults()[key]
 	}
@@ -81,8 +81,8 @@ func (s *Storage) UpdateSettings(kv map[string]interface{}) bool {
 			return false
 		}
 		_, err = s.db.Exec(`
-			insert into settings (key, val) values (?, ?)
-			on conflict (key) do update set val=?`,
+			insert into settings (key, val) values ($1, $2)
+			on conflict (key) do update set val=$3`,
 			key, valEncoded, valEncoded,
 		)
 		if err != nil {
