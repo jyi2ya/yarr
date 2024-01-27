@@ -2,7 +2,7 @@
 
 **yarr** (yet another rss reader) is a web-based feed aggregator which can be used as a personal self-hosted server.
 
-The app is a single binary that connects to an external Postgres database for data persistence. This is a fork of [the original](https://github.com/nkanaev/yarr) that has been greatly simplified to remove features and dependencies for running as a locally installed application and also changed from using sqlite to using postgres for persistence. The reason for these changes is to focus on running as a simple microservice instead of a full-featured local application.
+This is a fork of [the original](https://github.com/nkanaev/yarr) which was designed predominantly as a small app to run locally on your Mac or PC. It used an embedded database (sqlite) and had features like menu bar icons. This fork strips all of that away to instead prioritize running the application as a service in orchestration like Kubernetes. The sqlite database has been replaced by postgres and all the features for running locally have been removed. What is left is a super simple microservice with all the same RSS features as the original, fine-tuned to run in orchestration with no local dependencies.
 
 ![screenshot](docs/promo.png)
 
