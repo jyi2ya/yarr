@@ -1,4 +1,4 @@
-const VERSION = "v3.1.0"
+const VERSION = "v3.1.1"
 const APP_STATIC_RESOURCES = [
   "/",
   "/static/stylesheets/bootstrap.min.css",
