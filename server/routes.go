@@ -93,6 +93,16 @@ func (s *Server) handleManifest(c *router.Context) {
 				"sizes": "64x64",
 				"type":  "image/png",
 			},
+			{
+				"src":   s.BasePath + "/static/graphicarts/favicon-144.png",
+				"sizes": "144x144",
+				"type":  "image/png",
+			},
+			{
+				"src":   s.BasePath + "/static/graphicarts/favicon.svg",
+				"sizes": "any",
+				"type":  "image/svg",
+			},
 		},
 	})
 }
