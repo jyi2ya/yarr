@@ -1,4 +1,6 @@
-FROM golang:alpine AS build
+FROM --platform=$BUILDPLATFORM golang:alpine AS build
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 
@@ -7,7 +9,7 @@ COPY . .
 RUN go mod download
 RUN go mod verify
 
-RUN GOOS=linux GOARCH=amd64 go build -o bin/yarr .
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o bin/yarr .
 
 FROM alpine:latest
 
