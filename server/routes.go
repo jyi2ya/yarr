@@ -34,8 +34,8 @@ func (s *Server) handler() http.Handler {
 			BasePath: s.BasePath,
 			Username: s.Username,
 			Password: s.Password,
-			Public:   []string{"/static", "/fever"},
-            DB:       s.db,
+			Public:   []string{"/static", "/fever", "/manifest.json"},
+			DB:       s.db,
 		}
 		r.Use(a.Handler)
 	}
